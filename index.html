@@ -601,8 +601,9 @@ function animateWalk(t, moving){
   const lUpperLeg = bone('leftUpperLeg'), rUpperLeg = bone('rightUpperLeg');
   const spine = bone('spine');
   const swing = Math.sin(t*speed) * amp;
-  if(lUpperArm) lUpperArm.rotation.x = swing;
-  if(rUpperArm) rUpperArm.rotation.x = -swing;
+  const armDown = Math.PI/2 - 0.3; // brings the arm down from the default T-pose to resting at the side
+  if(lUpperArm){ lUpperArm.rotation.z = armDown; lUpperArm.rotation.x = swing; }
+  if(rUpperArm){ rUpperArm.rotation.z = -armDown; rUpperArm.rotation.x = -swing; }
   if(lUpperLeg) lUpperLeg.rotation.x = -swing*0.7;
   if(rUpperLeg) rUpperLeg.rotation.x = swing*0.7;
   if(spine) spine.rotation.z = Math.sin(t*speed*0.5) * amp * 0.15;
@@ -653,6 +654,7 @@ function updateMinimap(){
    MAIN LOOP
 ========================================================= */
 const CAM_HEIGHT = 3.6, CAM_BACK = 5.4;
+let visualFacing = player.facing;
 function update(dt, t){
   if(paused || modalOverlay.classList.contains('open')){ updateNear(); return; }
   let dx=0, dz=0;
@@ -669,9 +671,14 @@ function update(dt, t){
     if(canMoveTo(player.x+mx, player.z)) player.x += mx;
     if(canMoveTo(player.x, player.z+mz)) player.z += mz;
   }
+  // smooth turning: rotate visualFacing toward player.facing via shortest angular path
+  let diff = player.facing - visualFacing;
+  diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+  visualFacing += diff * Math.min(1, dt*9);
+
   if(vrm){
     vrm.scene.position.set(player.x, 0, player.z);
-    vrm.scene.rotation.y = player.facing;
+    vrm.scene.rotation.y = visualFacing;
     animateWalk(t, moving);
     vrm.update(dt);
   }
@@ -684,10 +691,14 @@ function update(dt, t){
   updateNear();
 }
 
+const camEye = new THREE.Vector3();
+let camInit = false;
 function render(){
-  const eyeX = player.x - Math.sin(player.facing)*CAM_BACK;
-  const eyeZ = player.z - Math.cos(player.facing)*CAM_BACK;
-  camera.position.set(eyeX, CAM_HEIGHT, eyeZ);
+  const targetX = player.x - Math.sin(visualFacing)*CAM_BACK;
+  const targetZ = player.z - Math.cos(visualFacing)*CAM_BACK;
+  if(!camInit){ camEye.set(targetX, CAM_HEIGHT, targetZ); camInit = true; }
+  else { camEye.x += (targetX-camEye.x)*0.12; camEye.z += (targetZ-camEye.z)*0.12; camEye.y = CAM_HEIGHT; }
+  camera.position.copy(camEye);
   camera.lookAt(player.x, 1.3, player.z);
   if(webglOK) renderer.render(scene, camera);
   updateLabels();
