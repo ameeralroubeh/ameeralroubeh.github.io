@@ -57,7 +57,7 @@ html,body{ width:100%; height:100%; background:#cfe8f0; color:var(--text); font-
 .hud-col.right{ align-items:flex-end; }
 #hud .box{ background:rgba(255,255,255,0.88); border-radius:14px; padding:10px 16px; font-size:.8rem; font-weight:600; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.08); pointer-events:auto; }
 #hud .hint{ color:var(--dim); font-size:.72rem; font-weight:500; font-family:var(--f-body); }
-#hud .hint-desktop{ display:block; } #hud .hint-mobile{ display:none; }
+#hud .hint-desktop{ display:block; }
 #inventory{ display:flex; gap:6px; }
 .inv-slot{ width:32px; height:32px; border-radius:10px; background:rgba(255,255,255,0.6); display:flex; align-items:center; justify-content:center; font-size:.95rem; filter:grayscale(1) opacity(0.5); }
 .inv-slot.filled{ filter:none; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.12); }
@@ -76,11 +76,13 @@ html,body{ width:100%; height:100%; background:#cfe8f0; color:var(--text); font-
 #tc-left .tc-arrow{ border-top:9px solid transparent; border-bottom:9px solid transparent; border-right:13px solid var(--text); }
 #tc-right .tc-arrow{ border-top:9px solid transparent; border-bottom:9px solid transparent; border-left:13px solid var(--text); }
 #tc-up{ top:0; left:50px; } #tc-down{ top:100px; left:50px; } #tc-left{ top:50px; left:0; } #tc-right{ top:50px; left:100px; }
-#tc-interact{ position:absolute; right:26px; bottom:34px; width:80px; height:80px; border-radius:50%; background:var(--text); color:#fff; font-family:var(--f-head); font-weight:600; font-size:.7rem; display:flex; align-items:center; justify-content:center; pointer-events:auto; touch-action:none; box-shadow:0 6px 18px rgba(0,0,0,0.25); }
+#tc-interact{ position:absolute; right:26px; bottom:34px; width:80px; height:80px; border-radius:50%; background:var(--text); display:flex; align-items:center; justify-content:center; pointer-events:auto; touch-action:none; box-shadow:0 6px 18px rgba(0,0,0,0.25); }
+.tc-bubble{ position:relative; width:28px; height:20px; background:#fff; border-radius:6px; }
+.tc-bubble::before{ content:''; position:absolute; left:6px; top:6px; right:6px; height:2px; background:var(--text); opacity:.35; box-shadow:0 5px 0 rgba(43,51,58,0.35); }
+.tc-bubble::after{ content:''; position:absolute; bottom:-6px; left:9px; width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:7px solid #fff; }
 @media (pointer:coarse){
   #touch-controls{ display:block; }
-  #hud .hint-desktop{ display:none; }
-  #hud .hint-mobile{ display:block; }
+  #hint-box{ display:none; }
   #minimap{ width:64px; height:64px; }
   .hud-col.right{ gap:6px; }
 }
@@ -156,9 +158,8 @@ html,body{ width:100%; height:100%; background:#cfe8f0; color:var(--text); font-
   </div>
   <div class="hud-col right">
     <canvas id="minimap" width="130" height="130"></canvas>
-    <div class="box hint">
+    <div class="box hint" id="hint-box">
       <span class="hint-desktop">WASD/ARROWS MOVE · E INTERACT · ESC PAUSE</span>
-      <span class="hint-mobile">PAD TO MOVE · TAP ● TO INTERACT</span>
     </div>
   </div>
 </div>
@@ -172,7 +173,7 @@ html,body{ width:100%; height:100%; background:#cfe8f0; color:var(--text); font-
     <div class="tc-btn" id="tc-right"><span class="tc-arrow"></span></div>
     <div class="tc-btn" id="tc-down"><span class="tc-arrow"></span></div>
   </div>
-  <div id="tc-interact">●</div>
+  <div id="tc-interact"><span class="tc-bubble"></span></div>
 </div>
 
 <div id="toast-container"></div>
@@ -538,7 +539,7 @@ function updateNear(){
   const promptEl = document.getElementById('prompt');
   const isTouch = matchMedia('(pointer:coarse)').matches;
   if(nearMarker){
-    promptEl.textContent = isTouch ? `Tap ● to open ${nearMarker.label}` : `Press E to open ${nearMarker.label}`;
+    promptEl.textContent = isTouch ? `Tap to open ${nearMarker.label}` : `Press E to open ${nearMarker.label}`;
     promptEl.classList.add('show');
   } else { promptEl.classList.remove('show'); }
 }
@@ -622,7 +623,7 @@ resize();
 /* =========================================================
    ANIMATION HELPERS (procedural walk cycle on VRM humanoid bones)
 ========================================================= */
-const ARM_DOWN = Math.PI/2 - 0.3; // brings the arm down from the default T-pose to resting at the side
+const ARM_DOWN = Math.PI/2 - 0.1; // brings the arms down closer to the body than before
 let walkBlend = 0; // smoothed 0..1, idle -> walking, so motion eases in/out instead of snapping
 
 function animateWalk(t, moving, dt){
@@ -638,31 +639,30 @@ function animateWalk(t, moving, dt){
   const spine = bone('spine');
   const hips = bone('hips');
 
-  const strideSpeed = 7.4;
+  const strideSpeed = 6.6;
   const phase = t * strideSpeed;
-  const legSwing = Math.sin(phase) * 0.32 * walkBlend;
-  const armSwing = Math.sin(phase) * 0.3 * walkBlend;
-  const idleSway = (1 - walkBlend) * 0.045 * Math.sin(t * 1.3); // gentle breathing-like sway at rest
+  const legSwing = Math.sin(phase) * 0.14 * walkBlend;
+  const armSwing = Math.sin(phase) * 0.1 * walkBlend;
+  const idleSway = (1 - walkBlend) * 0.03 * Math.sin(t * 1.3); // gentle breathing-like sway at rest
 
   if(lUpperArm){ lUpperArm.rotation.z = ARM_DOWN; lUpperArm.rotation.x = armSwing + idleSway; }
   if(rUpperArm){ rUpperArm.rotation.z = -ARM_DOWN; rUpperArm.rotation.x = -armSwing - idleSway; }
   // elbows follow through slightly as the arm swings back, instead of staying perfectly straight
-  if(lLowerArm) lLowerArm.rotation.x = Math.max(0, -armSwing) * 0.5;
-  if(rLowerArm) rLowerArm.rotation.x = Math.max(0, armSwing) * 0.5;
+  if(lLowerArm) lLowerArm.rotation.x = Math.max(0, -armSwing) * 0.4;
+  if(rLowerArm) rLowerArm.rotation.x = Math.max(0, armSwing) * 0.4;
 
   if(lUpperLeg) lUpperLeg.rotation.x = -legSwing;
   if(rUpperLeg) rUpperLeg.rotation.x = legSwing;
-  // knees bend only during that leg's swing (the half-cycle where the thigh is moving through
-  // neutral), and reach exactly zero right as the leg extends forward to plant — that's the fix:
-  // before, the knee was still partly bent at footfall, which read as a stiff, shuffling walk.
-  if(lLowerLeg) lLowerLeg.rotation.x = Math.max(0, -Math.cos(phase)) * 0.85 * walkBlend;
-  if(rLowerLeg) rLowerLeg.rotation.x = Math.max(0, Math.cos(phase)) * 0.85 * walkBlend;
+  // knees bend only during that leg's swing, and reach exactly zero right as the leg extends
+  // forward to plant, matching real footfall timing
+  if(lLowerLeg) lLowerLeg.rotation.x = Math.max(0, -Math.cos(phase)) * 0.38 * walkBlend;
+  if(rLowerLeg) rLowerLeg.rotation.x = Math.max(0, Math.cos(phase)) * 0.38 * walkBlend;
 
-  if(spine) spine.rotation.z = Math.sin(phase * 0.5) * 0.04 * walkBlend;
+  if(spine) spine.rotation.z = Math.sin(phase * 0.5) * 0.02 * walkBlend;
   if(hips){
     // vertical bob (double-frequency, since both legs contribute a bounce per stride) + a slight twist
-    hips.position.y = baseHipsY + Math.abs(Math.sin(phase)) * 0.022 * walkBlend;
-    hips.rotation.y = Math.sin(phase) * 0.035 * walkBlend;
+    hips.position.y = baseHipsY + Math.abs(Math.sin(phase)) * 0.012 * walkBlend;
+    hips.rotation.y = Math.sin(phase) * 0.018 * walkBlend;
   }
 }
 
@@ -711,6 +711,8 @@ function updateMinimap(){
    MAIN LOOP
 ========================================================= */
 const CAM_HEIGHT = 3.6, CAM_BACK = 5.4;
+const INTRO_CAM_HEIGHT = 6.4, INTRO_CAM_BACK = 6.0, INTRO_DURATION = 3200; // ms
+let introStartTime = null;
 let visualFacing = player.facing;
 let hasMoved = false;
 function update(dt, t){
@@ -788,10 +790,18 @@ canvas.addEventListener('pointercancel', endOrbitDrag);
 canvas.addEventListener('pointerleave', endOrbitDrag);
 
 function render(){
-  const targetX = player.x + Math.sin(orbitYaw)*CAM_BACK;
-  const targetZ = player.z + Math.cos(orbitYaw)*CAM_BACK;
-  if(!camInit){ camEye.set(targetX, CAM_HEIGHT, targetZ); camInit = true; }
-  else { camEye.x += (targetX-camEye.x)*0.15; camEye.z += (targetZ-camEye.z)*0.15; camEye.y = CAM_HEIGHT; }
+  let camHeight = CAM_HEIGHT, camBack = CAM_BACK;
+  if(introStartTime !== null){
+    const raw = Math.min(1, (performance.now() - introStartTime) / INTRO_DURATION);
+    const eased = 1 - Math.pow(1 - raw, 3); // ease-out cubic: starts fast-ish, settles in slowly
+    camHeight = INTRO_CAM_HEIGHT + (CAM_HEIGHT - INTRO_CAM_HEIGHT) * eased;
+    camBack = INTRO_CAM_BACK + (CAM_BACK - INTRO_CAM_BACK) * eased;
+    if(raw >= 1) introStartTime = null; // intro finished, stop computing it every frame
+  }
+  const targetX = player.x + Math.sin(orbitYaw)*camBack;
+  const targetZ = player.z + Math.cos(orbitYaw)*camBack;
+  if(!camInit){ camEye.set(targetX, camHeight, targetZ); camInit = true; }
+  else { camEye.x += (targetX-camEye.x)*0.15; camEye.z += (targetZ-camEye.z)*0.15; camEye.y = camHeight; }
   camera.position.copy(camEye);
   camera.lookAt(player.x, 1.3, player.z);
   if(webglOK) renderer.render(scene, camera);
@@ -812,6 +822,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
   if(!webglOK){ document.getElementById('webgl-fail').style.display='block'; return; }
   document.getElementById('title-screen').style.display = 'none';
   resize();
+  introStartTime = performance.now();
   requestAnimationFrame(loop);
 });
 
