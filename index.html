@@ -418,6 +418,7 @@ TREE_POS.forEach(t => {
    VRM CHARACTER
 ========================================================= */
 let vrm = null;
+let facingOffset = 0;
 const player = { x:0, z:6, speed:2.6, facing:Math.PI };
 const clock = new THREE.Clock();
 
@@ -433,6 +434,7 @@ loader.load(
   (gltf) => {
     vrm = gltf.userData.vrm;
     VRMUtils.rotateVRM0(vrm); // normalize facing direction if this is a VRM0 model
+    facingOffset = vrm.scene.rotation.y; // preserve that correction — it gets combined with live turning below, not overwritten
     vrm.scene.traverse(obj => {
       if(obj.isMesh){ obj.castShadow = true; obj.receiveShadow = false; }
     });
@@ -678,7 +680,7 @@ function update(dt, t){
 
   if(vrm){
     vrm.scene.position.set(player.x, 0, player.z);
-    vrm.scene.rotation.y = visualFacing;
+    vrm.scene.rotation.y = facingOffset + visualFacing;
     animateWalk(t, moving);
     vrm.update(dt);
   }
