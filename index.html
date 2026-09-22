@@ -4,6 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Ameer Alroubeh — Portfolio</title>
+<meta name="description" content="Full-Stack Developer based in Istanbul — walk through a small 3D world to explore the portfolio.">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ameeralroubeh.github.io/">
+<meta property="og:title" content="Ameer Alroubeh — Full-Stack Developer">
+<meta property="og:description" content="Full-Stack Developer based in Istanbul — walk through a small 3D world to explore the portfolio.">
+<meta property="og:image" content="https://ameeralroubeh.github.io/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ameer Alroubeh — Full-Stack Developer">
+<meta name="twitter:description" content="Full-Stack Developer based in Istanbul — walk through a small 3D world to explore the portfolio.">
+<meta name="twitter:image" content="https://ameeralroubeh.github.io/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
@@ -32,7 +46,7 @@ html,body{ width:100%; height:100%; background:#cfe8f0; color:var(--text); font-
 #webgl-fail{ display:none; max-width:480px; color:#c0453f; font-size:1rem; margin-top:20px; }
 
 #game-wrap{ position:fixed; inset:0; }
-#game{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+#game{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
 #label-layer{ position:fixed; inset:0; z-index:15; pointer-events:none; }
 .world-label{ position:absolute; transform:translate(-50%,-100%); font-family:var(--f-head); font-weight:600; font-size:.82rem; color:var(--text); background:rgba(255,255,255,0.88); padding:6px 12px; border-radius:100px; box-shadow:0 4px 14px rgba(0,0,0,0.1); white-space:nowrap; text-align:center; pointer-events:none; transition:opacity .2s ease, transform .2s ease; }
 .world-label.near{ background:var(--text); color:#fff; transform:translate(-50%,-100%) scale(1.08); }
@@ -695,11 +709,32 @@ function update(dt, t){
 
 const camEye = new THREE.Vector3();
 let camInit = false;
+let orbitYaw = 0; // 0 = default view (behind the character); drag left/right to look from any angle
+let orbitDragging = false, orbitLastX = 0, orbitPointerId = null;
+
+canvas.addEventListener('pointerdown', e => {
+  // ignore drags starting on HUD buttons/touch controls, which sit above the canvas
+  orbitDragging = true;
+  orbitLastX = e.clientX;
+  orbitPointerId = e.pointerId;
+  try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+});
+canvas.addEventListener('pointermove', e => {
+  if(!orbitDragging || e.pointerId !== orbitPointerId) return;
+  const dx = e.clientX - orbitLastX;
+  orbitLastX = e.clientX;
+  orbitYaw -= dx * 0.007;
+});
+function endOrbitDrag(e){ if(e.pointerId === orbitPointerId){ orbitDragging = false; orbitPointerId = null; } }
+canvas.addEventListener('pointerup', endOrbitDrag);
+canvas.addEventListener('pointercancel', endOrbitDrag);
+canvas.addEventListener('pointerleave', endOrbitDrag);
+
 function render(){
-  const targetX = player.x - Math.sin(visualFacing)*CAM_BACK;
-  const targetZ = player.z - Math.cos(visualFacing)*CAM_BACK;
+  const targetX = player.x + Math.sin(orbitYaw)*CAM_BACK;
+  const targetZ = player.z + Math.cos(orbitYaw)*CAM_BACK;
   if(!camInit){ camEye.set(targetX, CAM_HEIGHT, targetZ); camInit = true; }
-  else { camEye.x += (targetX-camEye.x)*0.12; camEye.z += (targetZ-camEye.z)*0.12; camEye.y = CAM_HEIGHT; }
+  else { camEye.x += (targetX-camEye.x)*0.15; camEye.z += (targetZ-camEye.z)*0.15; camEye.y = CAM_HEIGHT; }
   camera.position.copy(camEye);
   camera.lookAt(player.x, 1.3, player.z);
   if(webglOK) renderer.render(scene, camera);
