@@ -673,15 +673,19 @@ const CAM_HEIGHT = 3.6, CAM_BACK = 5.4;
 let visualFacing = player.facing;
 function update(dt, t){
   if(paused || modalOverlay.classList.contains('open')){ updateNear(); return; }
-  let dx=0, dz=0;
-  if(keys['w']||keys['arrowup']) dz -= 1;
-  if(keys['s']||keys['arrowdown']) dz += 1;
-  if(keys['a']||keys['arrowleft']) dx -= 1;
-  if(keys['d']||keys['arrowright']) dx += 1;
-  const moving = (dx!==0 || dz!==0);
+  let forward=0, right=0;
+  if(keys['w']||keys['arrowup']) forward += 1;
+  if(keys['s']||keys['arrowdown']) forward -= 1;
+  if(keys['d']||keys['arrowright']) right += 1;
+  if(keys['a']||keys['arrowleft']) right -= 1;
+  const moving = (forward!==0 || right!==0);
   if(moving){
-    const len = Math.hypot(dx,dz);
-    dx/=len; dz/=len;
+    const len = Math.hypot(forward,right);
+    forward/=len; right/=len;
+    // rotate the forward/right input into world space using the camera's current orbit angle,
+    // so "W" always means "the direction the camera is currently facing"
+    const dx = -forward*Math.sin(orbitYaw) + right*Math.cos(orbitYaw);
+    const dz = -forward*Math.cos(orbitYaw) - right*Math.sin(orbitYaw);
     player.facing = Math.atan2(dx, dz);
     const mx = dx*player.speed*dt, mz = dz*player.speed*dt;
     if(canMoveTo(player.x+mx, player.z)) player.x += mx;
