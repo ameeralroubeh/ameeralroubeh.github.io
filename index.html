@@ -68,11 +68,22 @@ html,body{ width:100%; height:100%; background:#cfe8f0; color:var(--text); font-
 
 #touch-controls{ position:fixed; inset:0; z-index:19; display:none; pointer-events:none; }
 .tc-pad{ position:absolute; left:20px; bottom:20px; width:150px; height:150px; pointer-events:auto; }
-.tc-btn{ position:absolute; width:50px; height:50px; background:rgba(255,255,255,0.7); border-radius:14px; color:var(--text); font-size:1.2rem; display:flex; align-items:center; justify-content:center; touch-action:none; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+.tc-btn{ position:absolute; width:50px; height:50px; background:rgba(255,255,255,0.7); border-radius:14px; display:flex; align-items:center; justify-content:center; touch-action:none; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
 .tc-btn:active{ background:#fff; }
+.tc-arrow{ width:0; height:0; }
+#tc-up .tc-arrow{ border-left:9px solid transparent; border-right:9px solid transparent; border-bottom:13px solid var(--text); }
+#tc-down .tc-arrow{ border-left:9px solid transparent; border-right:9px solid transparent; border-top:13px solid var(--text); }
+#tc-left .tc-arrow{ border-top:9px solid transparent; border-bottom:9px solid transparent; border-right:13px solid var(--text); }
+#tc-right .tc-arrow{ border-top:9px solid transparent; border-bottom:9px solid transparent; border-left:13px solid var(--text); }
 #tc-up{ top:0; left:50px; } #tc-down{ top:100px; left:50px; } #tc-left{ top:50px; left:0; } #tc-right{ top:50px; left:100px; }
 #tc-interact{ position:absolute; right:26px; bottom:34px; width:80px; height:80px; border-radius:50%; background:var(--text); color:#fff; font-family:var(--f-head); font-weight:600; font-size:.7rem; display:flex; align-items:center; justify-content:center; pointer-events:auto; touch-action:none; box-shadow:0 6px 18px rgba(0,0,0,0.25); }
-@media (pointer:coarse){ #touch-controls{ display:block; } #hud .hint-desktop{ display:none; } #hud .hint-mobile{ display:block; } }
+@media (pointer:coarse){
+  #touch-controls{ display:block; }
+  #hud .hint-desktop{ display:none; }
+  #hud .hint-mobile{ display:block; }
+  #minimap{ width:64px; height:64px; }
+  .hud-col.right{ gap:6px; }
+}
 
 #toast-container{ position:fixed; top:96px; left:50%; transform:translateX(-50%); z-index:30; display:flex; flex-direction:column; gap:10px; align-items:center; pointer-events:none; }
 .toast{ font-family:var(--f-head); font-weight:600; font-size:.82rem; background:var(--text); color:#fff; padding:13px 20px; border-radius:100px; opacity:0; transform:translateY(-10px); animation:toast-in .35s ease forwards, toast-out .4s ease 2.7s forwards; text-align:center; max-width:90vw; box-shadow:0 8px 24px rgba(0,0,0,0.2); }
@@ -156,10 +167,10 @@ html,body{ width:100%; height:100%; background:#cfe8f0; color:var(--text); font-
 
 <div id="touch-controls">
   <div class="tc-pad">
-    <div class="tc-btn" id="tc-up">▲</div>
-    <div class="tc-btn" id="tc-left">◀</div>
-    <div class="tc-btn" id="tc-right">▶</div>
-    <div class="tc-btn" id="tc-down">▼</div>
+    <div class="tc-btn" id="tc-up"><span class="tc-arrow"></span></div>
+    <div class="tc-btn" id="tc-left"><span class="tc-arrow"></span></div>
+    <div class="tc-btn" id="tc-right"><span class="tc-arrow"></span></div>
+    <div class="tc-btn" id="tc-down"><span class="tc-arrow"></span></div>
   </div>
   <div id="tc-interact">●</div>
 </div>
@@ -434,7 +445,7 @@ TREE_POS.forEach(t => {
 let vrm = null;
 let facingOffset = 0;
 let baseHipsY = 0;
-const player = { x:0, z:6, speed:2.6, facing:Math.PI };
+const player = { x:0, z:6, speed:2.6, facing:0 };
 const clock = new THREE.Clock();
 
 const loader = new GLTFLoader();
@@ -629,7 +640,7 @@ function animateWalk(t, moving, dt){
 
   const strideSpeed = 7.4;
   const phase = t * strideSpeed;
-  const legSwing = Math.sin(phase) * 0.26 * walkBlend;
+  const legSwing = Math.sin(phase) * 0.32 * walkBlend;
   const armSwing = Math.sin(phase) * 0.3 * walkBlend;
   const idleSway = (1 - walkBlend) * 0.045 * Math.sin(t * 1.3); // gentle breathing-like sway at rest
 
@@ -641,15 +652,16 @@ function animateWalk(t, moving, dt){
 
   if(lUpperLeg) lUpperLeg.rotation.x = -legSwing;
   if(rUpperLeg) rUpperLeg.rotation.x = legSwing;
-  // knees bend smoothly through the stride (no hard clamp, so there's no "snap" at the transition),
-  // peaking near mid-swing and easing to nearly straight on the planted step
-  if(lLowerLeg) lLowerLeg.rotation.x = (0.5 - 0.5*Math.cos(phase)) * 0.4 * walkBlend;
-  if(rLowerLeg) rLowerLeg.rotation.x = (0.5 + 0.5*Math.cos(phase)) * 0.4 * walkBlend;
+  // knees bend only during that leg's swing (the half-cycle where the thigh is moving through
+  // neutral), and reach exactly zero right as the leg extends forward to plant — that's the fix:
+  // before, the knee was still partly bent at footfall, which read as a stiff, shuffling walk.
+  if(lLowerLeg) lLowerLeg.rotation.x = Math.max(0, -Math.cos(phase)) * 0.85 * walkBlend;
+  if(rLowerLeg) rLowerLeg.rotation.x = Math.max(0, Math.cos(phase)) * 0.85 * walkBlend;
 
   if(spine) spine.rotation.z = Math.sin(phase * 0.5) * 0.04 * walkBlend;
   if(hips){
     // vertical bob (double-frequency, since both legs contribute a bounce per stride) + a slight twist
-    hips.position.y = baseHipsY + Math.abs(Math.sin(phase)) * 0.02 * walkBlend;
+    hips.position.y = baseHipsY + Math.abs(Math.sin(phase)) * 0.022 * walkBlend;
     hips.rotation.y = Math.sin(phase) * 0.035 * walkBlend;
   }
 }
@@ -700,6 +712,7 @@ function updateMinimap(){
 ========================================================= */
 const CAM_HEIGHT = 3.6, CAM_BACK = 5.4;
 let visualFacing = player.facing;
+let hasMoved = false;
 function update(dt, t){
   if(paused || modalOverlay.classList.contains('open')){ updateNear(); return; }
   let forward=0, right=0;
@@ -709,6 +722,7 @@ function update(dt, t){
   if(keys['a']||keys['arrowleft']) right -= 1;
   const moving = (forward!==0 || right!==0);
   if(moving){
+    hasMoved = true;
     const len = Math.hypot(forward,right);
     forward/=len; right/=len;
     // rotate the forward/right input into world space using the camera's current orbit angle,
@@ -724,6 +738,16 @@ function update(dt, t){
   let diff = player.facing - visualFacing;
   diff = Math.atan2(Math.sin(diff), Math.cos(diff));
   visualFacing += diff * Math.min(1, dt*9);
+
+  // once the player has actually walked at least once, ease the camera back to sit behind
+  // wherever the character is facing (unless it's being manually dragged); before that first
+  // move, leave it alone so the character keeps facing the camera as an intro pose
+  if(!orbitDragging && hasMoved){
+    const targetOrbitYaw = visualFacing + Math.PI;
+    let odiff = targetOrbitYaw - orbitYaw;
+    odiff = Math.atan2(Math.sin(odiff), Math.cos(odiff));
+    orbitYaw += odiff * Math.min(1, dt*2.2);
+  }
 
   if(vrm){
     vrm.scene.position.set(player.x, 0, player.z);
