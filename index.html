@@ -629,27 +629,28 @@ function animateWalk(t, moving, dt){
 
   const strideSpeed = 7.4;
   const phase = t * strideSpeed;
-  const legSwing = Math.sin(phase) * 0.55 * walkBlend;
-  const armSwing = Math.sin(phase) * 0.5 * walkBlend;
+  const legSwing = Math.sin(phase) * 0.26 * walkBlend;
+  const armSwing = Math.sin(phase) * 0.3 * walkBlend;
   const idleSway = (1 - walkBlend) * 0.045 * Math.sin(t * 1.3); // gentle breathing-like sway at rest
 
   if(lUpperArm){ lUpperArm.rotation.z = ARM_DOWN; lUpperArm.rotation.x = armSwing + idleSway; }
   if(rUpperArm){ rUpperArm.rotation.z = -ARM_DOWN; rUpperArm.rotation.x = -armSwing - idleSway; }
   // elbows follow through slightly as the arm swings back, instead of staying perfectly straight
-  if(lLowerArm) lLowerArm.rotation.x = Math.max(0, -armSwing) * 0.6;
-  if(rLowerArm) rLowerArm.rotation.x = Math.max(0, armSwing) * 0.6;
+  if(lLowerArm) lLowerArm.rotation.x = Math.max(0, -armSwing) * 0.5;
+  if(rLowerArm) rLowerArm.rotation.x = Math.max(0, armSwing) * 0.5;
 
   if(lUpperLeg) lUpperLeg.rotation.x = -legSwing;
   if(rUpperLeg) rUpperLeg.rotation.x = legSwing;
-  // knees bend while that leg is lifting/swinging forward, straighten on the down-stride (planted) side
-  if(lLowerLeg) lLowerLeg.rotation.x = Math.max(0, Math.sin(phase + Math.PI)) * 0.9 * walkBlend;
-  if(rLowerLeg) rLowerLeg.rotation.x = Math.max(0, Math.sin(phase)) * 0.9 * walkBlend;
+  // knees bend smoothly through the stride (no hard clamp, so there's no "snap" at the transition),
+  // peaking near mid-swing and easing to nearly straight on the planted step
+  if(lLowerLeg) lLowerLeg.rotation.x = (0.5 - 0.5*Math.cos(phase)) * 0.4 * walkBlend;
+  if(rLowerLeg) rLowerLeg.rotation.x = (0.5 + 0.5*Math.cos(phase)) * 0.4 * walkBlend;
 
-  if(spine) spine.rotation.z = Math.sin(phase * 0.5) * 0.08 * walkBlend;
+  if(spine) spine.rotation.z = Math.sin(phase * 0.5) * 0.04 * walkBlend;
   if(hips){
     // vertical bob (double-frequency, since both legs contribute a bounce per stride) + a slight twist
-    hips.position.y = baseHipsY + Math.abs(Math.sin(phase)) * 0.035 * walkBlend;
-    hips.rotation.y = Math.sin(phase) * 0.06 * walkBlend;
+    hips.position.y = baseHipsY + Math.abs(Math.sin(phase)) * 0.02 * walkBlend;
+    hips.rotation.y = Math.sin(phase) * 0.035 * walkBlend;
   }
 }
 
